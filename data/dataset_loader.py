@@ -1,8 +1,28 @@
+import os
+
 import tensorflow as tf
 
 # 0 = REAL, 1 = FAKE (AI-generated), to match models/baseline_cnn.py.
 # Without this, Keras sorts folders alphabetically and gives FAKE = 0.
 CLASS_NAMES = ["REAL", "FAKE"]
+
+
+def validate_dataset_paths(dataset_dir):
+    """Fail fast if the expected CIFAKE directories are missing."""
+    required_paths = [
+        os.path.join(dataset_dir, "train", "REAL"),
+        os.path.join(dataset_dir, "train", "FAKE"),
+        os.path.join(dataset_dir, "test", "REAL"),
+        os.path.join(dataset_dir, "test", "FAKE"),
+    ]
+
+    missing = [path for path in required_paths if not os.path.isdir(path)]
+    if missing:
+        raise FileNotFoundError(
+            "Missing CIFAKE dataset folders: " + ", ".join(missing)
+        )
+
+    return True
 
 
 def load_dataset(dataset_dir, image_size=(32, 32), batch_size=32,
@@ -31,6 +51,8 @@ def load_dataset(dataset_dir, image_size=(32, 32), batch_size=32,
         train_ds, val_ds, test_ds
     """
 
+    validate_dataset_paths(dataset_dir)
+
     # Split train/ into training and validation sets in one call
     train_ds, val_ds = tf.keras.utils.image_dataset_from_directory(
         f"{dataset_dir}/train",
@@ -53,5 +75,11 @@ def load_dataset(dataset_dir, image_size=(32, 32), batch_size=32,
         class_names=CLASS_NAMES,
         shuffle=False
     )
+
+    if list(train_ds.class_names) != CLASS_NAMES:
+        raise ValueError(
+            f"Unexpected dataset class ordering: {train_ds.class_names}. "
+            f"Expected {CLASS_NAMES}."
+        )
 
     return train_ds, val_ds, test_ds
